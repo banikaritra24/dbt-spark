@@ -78,6 +78,7 @@ class SparkCredentials(Credentials):
     auth: Optional[str] = None
     kerberos_service_name: Optional[str] = None
     organization: str = "0"
+    sparkservertype: str = "3"
     connection_string_suffix: Optional[str] = None
     connect_retries: int = 0
     connect_timeout: int = 10
@@ -486,13 +487,16 @@ class SparkConnectionManager(SQLConnectionManager):
                         )
                     elif creds.connection_string_suffix is not None:
                         required_fields = ["driver", "host", "port", "connection_string_suffix"]
-                    else:
-                        raise DbtConfigError(
-                            "Either `cluster`, `endpoint`, `connection_string_suffix` must set when"
+                    elif creds.sparkservertype is not None and creds.sparkservertype != "DFI":
+                        raise DbtProfileError(
+                            "Either `cluster` or `endpoint` must set when"
                             " using the odbc method to connect to Spark"
                         )
+                    else:
+                        http_path = ""
 
-                    cls.validate_creds(creds, required_fields)
+                    if creds.sparkservertype is not None and creds.sparkservertype != "DFI":
+                        cls.validate_creds(creds, required_fields)
                     dbt_spark_version = __version__.version
                     user_agent_entry = (
                         f"dbt-labs-dbt-spark/{dbt_spark_version} (Databricks)"  # noqa
@@ -509,7 +513,8 @@ class SparkConnectionManager(SQLConnectionManager):
                             PWD=creds.token,
                             HTTPPath=http_path,
                             AuthMech=3,
-                            SparkServerType=3,
+                            SparkServerType=creds.sparkservertype,
+                            #SparkServerType=3,
                             ThriftTransport=2,
                             SSL=1,
                             UserAgentEntry=user_agent_entry,
